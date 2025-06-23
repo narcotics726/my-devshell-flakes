@@ -5,17 +5,21 @@
 
   outputs = { self, nixpkgs }:
     let
-      system = "x86_64-linux";
-      pkgs = import nixpkgs { inherit system; };
-      unfree-pkgs = import nixpkgs {
-        inherit system;
-        config = { allowUnfree = true; };
-      };
+      supportedSystems = [ "x86_64-linux" "aarch64-darwin" ];
+      forAllSystems = f: nixpkgs.lib.genAttrs supportedSystems (system:
+        let
+          pkgs = import nixpkgs { inherit system; };
+          unfree-pkgs = import nixpkgs {
+            inherit system;
+            config = { allowUnfree = true; };
+          };
+        in f { inherit pkgs unfree-pkgs system; }
+      );
     in {
-      devShells.${system} = {
-        node22 = import ./lang/node.nix { inherit pkgs; };
+      devShells = forAllSystems ({ pkgs, unfree-pkgs, system }: {
+        node = import ./lang/node.nix { inherit pkgs; };
         rust = import ./lang/rust.nix { inherit pkgs; };
         terraform = import ./lang/terraform.nix { pkgs = unfree-pkgs; };
-      };
+      });
     };
 }
